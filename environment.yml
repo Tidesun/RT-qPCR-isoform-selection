@@ -1,0 +1,15 @@
+name: qPCR_isoform_selection
+channels:
+  - bioconda
+  - r
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.6
+  - magicblast=1.4.0
+  - intervaltree=3.1.0
+  - biopython=1.70
+  - pandas=0.24.2
+  - numpy=1.12.1
+  - pysam=0.19.1
+  - primer3-py=0.6.1
