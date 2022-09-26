@@ -38,3 +38,22 @@ optional named arguments:
                         Whether only identify unique region of isoforms and do
                         not find primers.[default:False]
 ```
+# Output files
+## unique_region.tsv
+- SEQUENCE_ID: Gene-isoform-region_id <br>
+- SEQUENCE_TEMPLATE: region sequence<br>
+- region_type: junction or exon<br>
+- Chr <br>
+- Strand<br>
+- 5_end_and_3_end_distance_difference: abs(distance_to_5_end - distance_to_3_end). Lower value indicates it is located far from 5' and 3' end. For primer design, the target region should be as far from 5' and 3' end as possible.<br>
+- exon_0_start: The start position of the first exon of the region.<br>
+- exon_0_end: The end position of the first exon of the region.<br>
+- exon_1_start: The start position of the second exon of the region. Should be nan if the region type is exon.<br>
+- exon_1_end: The end position of the second exon of the region. Should be nan if the region type is exon.<br>
+## unique_region_with_primers.tsv
+- Same format as unique region. Only show the regions with valid primers.<br>
+## all_primers_overview.tsv
+- The primers' info of all isoforms. Refer to https://primer3.org/manual.html for the meaning of the fields. <br>
+## designs/[ISOFORM_ID]/
+- *.gtf: primer annotation
+- primer_overview.tsv: same format as all_primers_overview.tsv but for only one isoform.
