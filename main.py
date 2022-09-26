@@ -17,6 +17,7 @@ def parse_arguments():
     optional.add_argument('-t','--threads', type=int, help="Number of threads.[default:1]",required=False,default=1)
     optional.add_argument('--min_region_length', type=int, help="Min region length.[default:95]",required=False,default=95)
     optional.add_argument('--NONCODE_fasta_url', type=str, help="NONCDOE reference fasta.[default:http://www.noncode.org/datadownload/NONCODEv6_human.fa.gz]",required=False,default='http://www.noncode.org/datadownload/NONCODEv6_human.fa.gz')
+    optional.add_argument('--only_identify_unique_region', type=str, help="Whether only identify unique region of isoforms and do not find primers.[default:False]",required=False,default='False')
     args = parser.parse_args()
     return args
 import time
@@ -38,9 +39,10 @@ def main():
     duration = time.time() - st
     duration_minutes = duration/60
     print(f'Prepare target sequence done in {duration} seconds / {duration_minutes} minutes!',flush=True)
-    st = time.time()
-    design_primers(ref_file_path,reference_genome_path,output_dir,conda_env_name,NONCODE_fasta_url,threads)
-    duration = time.time() - st
-    duration_minutes = duration/60
-    print(f'Design primers done in {duration} seconds / {duration_minutes} minutes!',flush=True)
+    if args.only_identify_unique_region == 'False':
+        st = time.time()
+        design_primers(ref_file_path,reference_genome_path,output_dir,conda_env_name,NONCODE_fasta_url,threads)
+        duration = time.time() - st
+        duration_minutes = duration/60
+        print(f'Design primers done in {duration} seconds / {duration_minutes} minutes!',flush=True)
 main()
