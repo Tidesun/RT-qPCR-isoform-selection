@@ -8,6 +8,7 @@ usage: main.py [-h] -gtf GTF_ANNOTATION_PATH -genome REFERENCE_GENOME_FASTA -o
                OUTPUT_DIR [--conda_env_name CONDA_ENV_NAME] [-t THREADS]
                [--min_region_length MIN_REGION_LENGTH]
                [--NONCODE_fasta_url NONCODE_FASTA_URL]
+               [--only_identify_unique_region ONLY_IDENTIFY_UNIQUE_REGION]
 
 RT-qPCR-isoform-selction
 
@@ -33,4 +34,7 @@ optional named arguments:
   --NONCODE_fasta_url NONCODE_FASTA_URL
                         NONCDOE reference fasta.[default:http://www.noncode.or
                         g/datadownload/NONCODEv6_human.fa.gz]
+  --only_identify_unique_region ONLY_IDENTIFY_UNIQUE_REGION
+                        Whether only identify unique region of isoforms and do
+                        not find primers.[default:False]
 ```
