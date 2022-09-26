@@ -166,8 +166,16 @@ def output_target_sequence_info(all_isoform_target_sequence_dict,isoform_exons_d
     df = df.set_index('SEQUENCE_ID')
     df.to_csv(f'{output_dir}/unique_region.tsv',sep='\t',na_rep='nan')
     return df
-
-def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_region_length,output_dir,threads):
+def read_isoform_list(isoform_list_fpath,all_isoform_target_sequence_dict):
+    isoform_set = set()
+    with open(isoform_list_fpath,'r') as f:
+        for line in f:
+            isoform_id = line.strip()
+            if isoform_id in all_isoform_target_sequence_dict:
+                isoform_set.add(isoform_id)
+    print(str(len(isoform_set))+' isoforms identified in the isoform list file and have unique region!',flush=True)
+    return isoform_set
+def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_region_length,output_dir,isoform_list_fpath,threads):
     reference_fasta = pysam.FastaFile(reference_genome_path)
     [gene_exons_dict, gene_points_dict, gene_isoforms_dict, genes_regions_len_dict,
         _, gene_regions_dict, gene_isoforms_length_dict,raw_isoform_exons_dict,raw_gene_exons_dict,same_structure_isoform_dict] = parse_annotation(ref_file_path, int((threads+1)//2))
@@ -188,6 +196,9 @@ def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_regi
                 all_isoform_target_sequence_dict.update(isoform_target_sequence_dict)
     isoform_exons_dict = get_isoform_exons_dict(raw_isoform_exons_dict)
     target_sequence_info_df = output_target_sequence_info(all_isoform_target_sequence_dict,isoform_exons_dict,output_dir)
+    print(str(len(all_isoform_target_sequence_dict))+' isoforms have unique region!',flush=True)
+    if isoform_list_fpath is not None:
+        selected_isoform_set = read_isoform_list(isoform_list_fpath,all_isoform_target_sequence_dict)
     # debug
     # backup = all_isoform_target_sequence_dict.copy()
     # all_isoform_target_sequence_dict = {}
@@ -196,12 +207,16 @@ def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_regi
     #     if len(all_isoform_target_sequence_dict) > 1000:
     #         break
     # split the isoform_target_sequence_dict by threads
-    chunksize, extra = divmod(len(all_isoform_target_sequence_dict), threads)
+    chunksize, extra = divmod(len(selected_isoform_set), threads)
     if extra:
         chunksize += 1
+    print(f'{chunksize} isoforms assigned to each thread for primer design.',flush=True)
     worker_id = 0
     all_isoform_target_sequence_dict_single_thread = {}
     for isoform in all_isoform_target_sequence_dict:
+        if isoform_list_fpath is not None:
+            if isoform not in selected_isoform_set:
+                continue
         all_isoform_target_sequence_dict_single_thread[isoform] = all_isoform_target_sequence_dict[isoform]
         if len(all_isoform_target_sequence_dict_single_thread) >= chunksize:
             with open(f'{output_dir}/temp/target_sequences/{worker_id}','wb') as f:

@@ -9,6 +9,7 @@ usage: main.py [-h] -gtf GTF_ANNOTATION_PATH -genome REFERENCE_GENOME_FASTA -o
                [--min_region_length MIN_REGION_LENGTH]
                [--NONCODE_fasta_url NONCODE_FASTA_URL]
                [--only_identify_unique_region ONLY_IDENTIFY_UNIQUE_REGION]
+               [--isoform_list_fpath ISOFORM_LIST_FPATH]
 
 RT-qPCR-isoform-selction
 
@@ -37,7 +38,12 @@ optional named arguments:
   --only_identify_unique_region ONLY_IDENTIFY_UNIQUE_REGION
                         Whether only identify unique region of isoforms and do
                         not find primers.[default:False]
+  --isoform_list_fpath ISOFORM_LIST_FPATH
+                        Path of isoform_list_fpath.[default:None]
 ```
+# Input files
+## --isoform_list_fpath
+- Refer to `examples/isoform_list.txt`. A one column tsv file with isoform IDs consistent with the annotation file. <br>
 # Output files
 ## unique_region.tsv
 - SEQUENCE_ID: Gene-isoform-region_id <br>
