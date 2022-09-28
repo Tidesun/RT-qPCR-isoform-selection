@@ -115,12 +115,7 @@ def check_for_blast(all_primer_design,isoform,output_dir,conda_env_name,isoform_
     for region,primer_design in all_primer_design.items():
         for primer_id,primer in primer_design.items():
             if f'{region}_{primer_id}' not in all_problem_design_set:
-                if 'PAR_' in region:
-                    values = region.split('_')
-                    isoform = '_'.join(values[3:6])
-                    region_id = values[-1]
-                else:
-                    [_,isoform,region_id] = region.split('_')
+                region_id = region.split('_')[-1]
                 if region_id not in good_primer_design:
                     good_primer_design[region_id] = {}
                 primer['primer_id'] = primer_id
@@ -234,7 +229,7 @@ def check_primer_3_and_blast_single_thread(worker_id,output_dir,conda_env_name):
     if not Path(f'{output_dir}/temp/target_sequences/{worker_id}').exists():
         return None
     with open(f'{output_dir}/temp/target_sequences/{worker_id}','rb') as f:
-        all_isoform_target_sequence_dict = pickle.load(f)
+        all_isoform_target_sequence_dict,all_isoform_gname_dict = pickle.load(f)
     all_good_primer_design = {}
     all_gtf_lines = {}
     for isoform,isoform_target_sequence_dict in all_isoform_target_sequence_dict.items():
@@ -260,7 +255,7 @@ def check_primer_3_and_blast_single_thread(worker_id,output_dir,conda_env_name):
                         region_info = region
                         region_type = 'exon'
                         break
-            gname = next(iter(region_dict.values()))['region'].split('_')[0]
+            gname = all_isoform_gname_dict[isoform]
             region_gtf_lines = get_primer_gtf_lines(good_primer_design[region_id],region_info,isoform,region_type,gname)
             if isoform not in all_gtf_lines:
                 all_gtf_lines[isoform] = {}

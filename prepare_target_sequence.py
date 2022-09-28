@@ -183,6 +183,7 @@ def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_regi
     gene_interval_tree_dict = get_gene_interval_tree_dict(gene_points_dict,gene_exons_dict)
     # get all isoform target sequence
     all_isoform_target_sequence_dict = {}
+    all_isoform_gname_dict = {}
     for rname in gene_regions_dict:
         chr_name = rname
         if rname not in reference_fasta.references:
@@ -194,6 +195,8 @@ def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_regi
             if gname in gene_strand_dict:
                 isoform_target_sequence_dict = get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length,gene_regions_dict,gene_points_dict,gene_isoforms_dict,gene_interval_tree_dict,gene_strand_dict)
                 all_isoform_target_sequence_dict.update(isoform_target_sequence_dict)
+                for isoform in all_isoform_target_sequence_dict:
+                    all_isoform_gname_dict[isoform] = gname
     isoform_exons_dict = get_isoform_exons_dict(raw_isoform_exons_dict)
     target_sequence_info_df = output_target_sequence_info(all_isoform_target_sequence_dict,isoform_exons_dict,output_dir)
     print(str(len(all_isoform_target_sequence_dict))+' isoforms have unique region!',flush=True)
@@ -220,11 +223,11 @@ def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_regi
         all_isoform_target_sequence_dict_single_thread[isoform] = all_isoform_target_sequence_dict[isoform]
         if len(all_isoform_target_sequence_dict_single_thread) >= chunksize:
             with open(f'{output_dir}/temp/target_sequences/{worker_id}','wb') as f:
-                pickle.dump(all_isoform_target_sequence_dict_single_thread,f)
+                pickle.dump((all_isoform_target_sequence_dict_single_thread,all_isoform_gname_dict),f)
             all_isoform_target_sequence_dict_single_thread = {}
             worker_id += 1
     if len(all_isoform_target_sequence_dict_single_thread) >= 0:
         with open(f'{output_dir}/temp/target_sequences/{worker_id}','wb') as f:
-            pickle.dump(all_isoform_target_sequence_dict_single_thread,f)
+            pickle.dump((all_isoform_target_sequence_dict_single_thread,all_isoform_gname_dict),f)
         all_isoform_target_sequence_dict_single_thread = {}
         worker_id += 1
