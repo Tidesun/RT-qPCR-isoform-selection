@@ -273,8 +273,8 @@ def check_primer_3_and_blast_single_thread(worker_id,output_dir,conda_env_name):
     for isoform in all_good_primer_design:
         all_excel_lines = []
         for region in all_good_primer_design[isoform]:
-            region_name = next(iter(next(iter(all_good_primer_design[isoform].values())).values()))['region']
             for primer_id in all_good_primer_design[isoform][region]:
+                region_name = all_good_primer_design[isoform][region][primer_id]['region']
                 fields = ['Isoform','SEQUENCE_ID','Primer_id']
                 line = [isoform,region_name,primer_id]
                 for key in all_good_primer_design[isoform][region][primer_id]:
