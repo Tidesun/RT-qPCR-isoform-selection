@@ -11,6 +11,8 @@ from GTFBasics import GTFFile
 def design_primer_for_isoform(isoform_target_sequence_dict,allow_exon=True):
     all_primer_design = {}
     all_raw_primer_design_result = {}
+    with open('test/test.pkl','wb') as f:
+        pickle.dump(isoform_target_sequence_dict,f)
     if allow_exon:
         region_types = ['junction','exon']
     else:

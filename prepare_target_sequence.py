@@ -72,28 +72,25 @@ def get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length
             start_pos_0,end_pos_0 = point_dict[start_pt_0],point_dict[end_pt_0]
             start_pos_1,end_pos_1 = point_dict[start_pt_1],point_dict[end_pt_1]
             if (end_pos_1 - start_pos_1 + 1) + (end_pos_0 - start_pos_0 + 1)  >= lower_region_length:
-                if len(gene_interval_tree_dict[rname].overlap(start_pos_0 + 1,end_pos_0)) == 1:
-                    if len(gene_interval_tree_dict[rname].overlap(start_pos_1 + 1,end_pos_1)) == 1:
-                    
-                        seq_dict = {}
-                        region_id += 1
-                        seq_dict['SEQUENCE_ID'] = f'{gname}_{isoform}_{region_id}'
-                        target_sequence_0 = get_sequence(start_pos_0,end_pos_0,chr_name,gene_strand_dict[gname],reference_fasta)
-                        target_sequence_1 = get_sequence(start_pos_1,end_pos_1,chr_name,gene_strand_dict[gname],reference_fasta)
-                        if gene_strand_dict[gname] == 1:
-                            seq_dict['SEQUENCE_TEMPLATE'] = target_sequence_0 + target_sequence_1
-                            seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_0)
-                            target_sequence = target_sequence_0 +'^'+target_sequence_1
-                        else:
-                            seq_dict['SEQUENCE_TEMPLATE'] =  target_sequence_1 + target_sequence_0
-                            seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_1)
-                            target_sequence = target_sequence_1 +'^'+target_sequence_0
-                        if isoform not in all_isoform_target_sequence_dict:
-                            all_isoform_target_sequence_dict[isoform] = {'junction':[],'junction_info':[],'exon':[],'exon_info':[]}
-                        all_isoform_target_sequence_dict[isoform]['junction'].append(seq_dict)
-                        strand = '+' if gene_strand_dict[gname] == 1 else '-'
-                        all_isoform_target_sequence_dict[isoform]['junction_info'].append(\
-                        {'region_id':region_id,'seq':target_sequence,'chr':chr_name,'strand':strand,'exon_0_start':start_pos_0,'exon_0_end':end_pos_0,'exon_1_start':start_pos_1,'exon_1_end':end_pos_1})
+                seq_dict = {}
+                region_id += 1
+                seq_dict['SEQUENCE_ID'] = f'{gname}_{isoform}_{region_id}'
+                target_sequence_0 = get_sequence(start_pos_0,end_pos_0,chr_name,gene_strand_dict[gname],reference_fasta)
+                target_sequence_1 = get_sequence(start_pos_1,end_pos_1,chr_name,gene_strand_dict[gname],reference_fasta)
+                if gene_strand_dict[gname] == 1:
+                    seq_dict['SEQUENCE_TEMPLATE'] = target_sequence_0 + target_sequence_1
+                    seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_0)
+                    target_sequence = target_sequence_0 +'^'+target_sequence_1
+                else:
+                    seq_dict['SEQUENCE_TEMPLATE'] =  target_sequence_1 + target_sequence_0
+                    seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_1)
+                    target_sequence = target_sequence_1 +'^'+target_sequence_0
+                if isoform not in all_isoform_target_sequence_dict:
+                    all_isoform_target_sequence_dict[isoform] = {'junction':[],'junction_info':[],'exon':[],'exon_info':[]}
+                all_isoform_target_sequence_dict[isoform]['junction'].append(seq_dict)
+                strand = '+' if gene_strand_dict[gname] == 1 else '-'
+                all_isoform_target_sequence_dict[isoform]['junction_info'].append(\
+                {'region_id':region_id,'seq':target_sequence,'chr':chr_name,'strand':strand,'exon_0_start':start_pos_0,'exon_0_end':end_pos_0,'exon_1_start':start_pos_1,'exon_1_end':end_pos_1})
         elif ':' in region and not '-' in region:
             [start_pt,end_pt] = region.split(':')
             start_pos,end_pos = point_dict[start_pt],point_dict[end_pt]
