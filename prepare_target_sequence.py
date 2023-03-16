@@ -10,8 +10,9 @@ import pandas as pd
 
 from parse_annotation import parse_annotation
 def get_sequence(start,end,chr,strand,reference_fasta):
+    assert strand in ['+','-']
     sequence = Seq(reference_fasta.fetch(chr,start - 1,end)).upper()
-    if strand == -1:
+    if strand == '-':
         sequence = sequence.reverse_complement()
     return str(sequence)
 def get_gene_interval_tree_dict(gene_points_dict,gene_exons_dict):
@@ -30,6 +31,7 @@ def get_gene_strand_dict(ref_file_path):
             if line.lstrip()[0] == "#":
                 continue
             fields = line.split('\t')
+            assert fields[6] in ['+','-']
             gene_id = re.findall('gene_id "([^"]*)"', fields[8])[0]
             if gene_id not in gene_strand_dict:
                 gene_strand_dict[gene_id] = fields[6]
@@ -77,7 +79,7 @@ def get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length
                 seq_dict['SEQUENCE_ID'] = f'{gname}_{isoform}_{region_id}'
                 target_sequence_0 = get_sequence(start_pos_0,end_pos_0,chr_name,gene_strand_dict[gname],reference_fasta)
                 target_sequence_1 = get_sequence(start_pos_1,end_pos_1,chr_name,gene_strand_dict[gname],reference_fasta)
-                if gene_strand_dict[gname] == 1:
+                if gene_strand_dict[gname] == '+':
                     seq_dict['SEQUENCE_TEMPLATE'] = target_sequence_0 + target_sequence_1
                     seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_0)
                     target_sequence = target_sequence_0 +'^'+target_sequence_1
@@ -88,7 +90,9 @@ def get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length
                 if isoform not in all_isoform_target_sequence_dict:
                     all_isoform_target_sequence_dict[isoform] = {'junction':[],'junction_info':[],'exon':[],'exon_info':[]}
                 all_isoform_target_sequence_dict[isoform]['junction'].append(seq_dict)
-                strand = '+' if gene_strand_dict[gname] == 1 else '-'
+                assert gene_strand_dict[gname] in ['+','-']
+                strand = '+' if gene_strand_dict[gname] == '+' else '-'
+                assert strand in ['+','-']
                 all_isoform_target_sequence_dict[isoform]['junction_info'].append(\
                 {'region_id':region_id,'seq':target_sequence,'chr':chr_name,'strand':strand,'exon_0_start':start_pos_0,'exon_0_end':end_pos_0,'exon_1_start':start_pos_1,'exon_1_end':end_pos_1})
         elif ':' in region and not '-' in region:
@@ -104,7 +108,9 @@ def get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length
                     if isoform not in all_isoform_target_sequence_dict:
                         all_isoform_target_sequence_dict[isoform] = {'junction':[],'junction_info':[],'exon':[],'exon_info':[]}
                     all_isoform_target_sequence_dict[isoform]['exon'].append(seq_dict)
-                    strand = '+' if gene_strand_dict[gname] == 1 else '-'
+                    assert gene_strand_dict[gname] in ['+','-']
+                    strand = '+' if gene_strand_dict[gname] == '+' else '-'
+                    assert strand in ['+','-']
                     all_isoform_target_sequence_dict[isoform]['exon_info'].append(\
                         {'region_id':region_id,'seq':target_sequence,'chr':chr_name,'strand':strand,'exon_start':start_pos,'exon_end':end_pos})
     return all_isoform_target_sequence_dict 
