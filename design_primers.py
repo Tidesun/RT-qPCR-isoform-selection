@@ -134,6 +134,7 @@ def get_primer_gtf_lines(good_primer_design,region_info,isoform,region_type,gnam
         # positive strand
         left_span_junction = False
         right_span_junction = False
+        assert region_info['strand'] in ['+','-']
         if region_info['strand'] == '+':
             if region_type == 'junction':
                 left_primer_start = primer_info['LEFT_start'] + region_info['exon_0_start']
@@ -320,4 +321,4 @@ def design_primers(ref_file_path,reference_genome_path,output_dir,conda_env_name
         unique_region_with_primers_df.to_csv(f'{output_dir}/unique_region_with_primers.tsv',sep='\t',na_rep='nan')
         all_gene_primer_design_df.to_csv(f'{output_dir}/all_primers_overview.tsv',sep='\t',index=False)
 
-    
+  
