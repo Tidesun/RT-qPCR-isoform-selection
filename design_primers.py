@@ -27,6 +27,9 @@ def design_primer_for_isoform(isoform_target_sequence_dict,allow_exon=True):
                     'PRIMER_OPT_SIZE': 20,
                     'PRIMER_MIN_SIZE': 18,
                     'PRIMER_MAX_SIZE': 25,
+                    'PRIMER_MIN_GC':40,
+                    'PRIMER_OPT_GC_PERCENT':50,
+                    'PRIMER_MAX_GC':60,
                     'PRIMER_NUM_RETURN':config.num_primers_returns,
                     'PRIMER_SECONDARY_STRUCTURE_ALIGNMENT':1,
                     'PRIMER_PRODUCT_SIZE_RANGE': [[80,250]],
@@ -426,5 +429,3 @@ def design_primers(ref_file_path,reference_genome_path,output_dir,conda_env_name
         unique_region_with_primers_df = unique_region_df.loc[set(all_gene_primer_design_df['SEQUENCE_ID'])]
         unique_region_with_primers_df.to_csv(f'{output_dir}/unique_region_with_primers.tsv',sep='\t',na_rep='nan')
         all_gene_primer_design_df.to_csv(f'{output_dir}/all_primers_overview.tsv',sep='\t',index=False)
-
-  
