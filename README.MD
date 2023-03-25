@@ -32,6 +32,11 @@ optional named arguments:
                         Number of threads.[default:1]
   --min_region_length MIN_REGION_LENGTH
                         Min region length.[default:95]
+  --min_intron_length MIN_INTRON_LENGTH
+                        Min intron length.[default:1000]
+  --num_primers_returns NUM_PRIMERS_RETURNS
+                        Maxium number of primers designed for each unique
+                        region of transcript.[default:1000]
   --NONCODE_fasta_url NONCODE_FASTA_URL
                         NONCDOE reference fasta.[default:http://www.noncode.or
                         g/datadownload/NONCODEv6_human.fa.gz]
@@ -52,10 +57,10 @@ optional named arguments:
 - Chr <br>
 - Strand<br>
 - 5_end_and_3_end_distance_difference: abs(distance_to_5_end - distance_to_3_end). Lower value indicates it is located far from 5' and 3' end. For primer design, the target region should be as far from 5' and 3' end as possible.<br>
-- exon_0_start: The start position of the first exon of the region.<br>
-- exon_0_end: The end position of the first exon of the region.<br>
-- exon_1_start: The start position of the second exon of the region. Should be nan if the region type is exon.<br>
-- exon_1_end: The end position of the second exon of the region. Should be nan if the region type is exon.<br>
+- exon_start: The start position of all the exons of the region. 1 base indexed. <br>
+- exon_end: The end position of the all the exon of the region. 1 base indexed. <br>
+- intron_length: The total length of intron region.
+- exon_length: The total length of the exon region.
 ## unique_region_with_primers.tsv
 - Same format as unique region. Only show the regions with valid primers.<br>
 ## all_primers_overview.tsv

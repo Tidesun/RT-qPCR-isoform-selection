@@ -8,4 +8,6 @@ normalize_sr_A = False
 sr_region_selection = 'real_data'
 keep_sr_exon_region = True
 normalize_lr_A = True
+min_intron_length = 1000
+num_primers_returns = 1000
 kallisto_index = '/fs/project/PCON0009/Yunhao/Project/Mili/Annotation/KallistoIndex/gencode.v39.transcripts.clean.dedup.m'

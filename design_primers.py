@@ -6,6 +6,7 @@ import pickle
 from Bio.Seq import Seq
 import pandas as pd
 from primer3 import bindings
+import config
 
 from GTFBasics import GTFFile
 def design_primer_for_isoform(isoform_target_sequence_dict,allow_exon=True):
@@ -26,9 +27,9 @@ def design_primer_for_isoform(isoform_target_sequence_dict,allow_exon=True):
                     'PRIMER_OPT_SIZE': 20,
                     'PRIMER_MIN_SIZE': 18,
                     'PRIMER_MAX_SIZE': 25,
-                    'PRIMER_NUM_RETURN':20,
+                    'PRIMER_NUM_RETURN':config.num_primers_returns,
                     'PRIMER_SECONDARY_STRUCTURE_ALIGNMENT':1,
-                    'PRIMER_PRODUCT_SIZE_RANGE': [[95,150]],
+                    'PRIMER_PRODUCT_SIZE_RANGE': [[80,250]],
                 })
             except Exception as e:
                 print(e)
@@ -56,12 +57,105 @@ def design_primer_for_isoform(isoform_target_sequence_dict,allow_exon=True):
                     primer_design[primer_id]['PAIR_PRODUCT_SIZE'] = res[f'PRIMER_PAIR_{primer_id}_PRODUCT_SIZE']
                     primer_design[primer_id]['PAIR_PENALTY'] = res[f'PRIMER_PAIR_{primer_id}_PENALTY']
                     primer_design[primer_id]['target_sequence'] = info['seq']
+            invalid_primer_id_set = set()
+            if region_type == 'junction':
+                strand = info['strand']
+                assert strand in ['+','-']
+                exon_starts,exon_ends = info['exon_start'],info['exon_end']
+                exon_lens = [e-s+1 for s,e in zip(exon_starts,exon_ends)]
+               
+                
+                for primer_id,design in primer_design.copy().items():
+                    is_invalid_primer_design = False
+                    if strand == '+':
+                        design_LEFT_start_genome = design['LEFT_start']
+                        design_LEFT_len = design['LEFT_len']
+                        design_RIGHT_start_genome = design['RIGHT_start']
+                        design_RIGHT_len = design['RIGHT_len']
+                    elif strand == '-':
+                        design_LEFT_start_genome = design['RIGHT_start']
+                        design_LEFT_len = design['RIGHT_len']
+                        design_RIGHT_start_genome = design['LEFT_start']
+                        design_RIGHT_len = design['LEFT_len']
+
+                    left_remaing_flanking = design_LEFT_start_genome
+                    for exon_index in range(0,len(exon_lens)):
+                        exon_len = exon_lens[exon_index]
+                        if left_remaing_flanking < exon_len:
+                            left_start = exon_starts[exon_index] + left_remaing_flanking
+                            if left_start + design_LEFT_len - 1 >= exon_ends[exon_index]:
+                                # del primer_design[primer_id]
+                                is_invalid_primer_design = True
+                            else:
+                                left_end = left_start + design_LEFT_len - 1
+                            break
+                        else:
+                            left_remaing_flanking -= exon_len
+                    if is_invalid_primer_design:
+                        # print(primer_id)
+                        invalid_primer_id_set.add(primer_id)
+                        continue 
+
+                    right_remaing_flanking = design_RIGHT_start_genome
+                    for exon_index in range(len(exon_lens)-1,-1,-1):
+                        exon_len = exon_lens[exon_index]
+                        if right_remaing_flanking < exon_len:
+                            right_end = exon_ends[exon_index] - right_remaing_flanking
+                            if right_end - design_RIGHT_len + 1 <= exon_starts[exon_index]:
+                                # del primer_design[primer_id]
+                                is_invalid_primer_design = True
+                            else:
+                                right_start = right_end - design_RIGHT_len + 1
+                            break
+                        else:
+                            right_remaing_flanking -= exon_len
+                    if is_invalid_primer_design:
+                        # print(primer_id)
+                        invalid_primer_id_set.add(primer_id)
+                        continue 
+                    # if left and right primer in the same exon; dropped
+                    for exon_start,exon_end in zip(exon_starts,exon_ends):
+                        if (left_start >= exon_start) & (left_end <= exon_end) & (right_start >= exon_start) & (right_end <= exon_end):
+                            # del primer_design[primer_id]
+                            is_invalid_primer_design = False
+                            break
+                    if is_invalid_primer_design:
+                        # print(primer_id)
+                        invalid_primer_id_set.add(primer_id)
+                        continue 
+                    else:
+                        if strand == '+':
+                            primer_design[primer_id]['LEFT_start_genome'] = left_start
+                            primer_design[primer_id]['LEFT_end_genome'] = left_end
+                            primer_design[primer_id]['RIGHT_start_genome'] = right_start
+                            primer_design[primer_id]['RIGHT_end_genome'] = right_end
+                        elif strand == '-':
+                            primer_design[primer_id]['LEFT_start_genome'] = right_start
+                            primer_design[primer_id]['LEFT_end_genome'] = right_end
+                            primer_design[primer_id]['RIGHT_start_genome'] = left_start
+                            primer_design[primer_id]['RIGHT_end_genome'] = left_end
+                    # if design['LEFT_start'] >=  junc_pos or design['RIGHT_start'] - design['RIGHT_len'] +1 <= junc_pos:
+                    #     # if junc point outside the product
+                    #     # if ((junc_pos < design['LEFT_start'] + design['LEFT_len'] - 1) & (junc_pos > design['LEFT_start'])) or  ((junc_pos > design['RIGHT_start'] - design['RIGHT_len'] + 1) & (junc_pos < design['RIGHT_start'])):
+                    #     #     # if junc point inside the primer
+                    #     #     pass
+                    #     # else:
+                    #         # if junc point not inside the product nor the primer
+                    #         del primer_design[primer_id]
+                    #         continue
+                    # primer_design[primer_id]['product_exons_len_difference'] = abs(abs(junc_pos - design['LEFT_start']) - abs(junc_pos - (design['RIGHT_start']-design['RIGHT_len']+1)))
             if 'PRIMER_PAIR_4_COMPL_END_STUCT' in res:
                 print('Possible secondary structure.')
             if len(primer_design) == 0:
                 continue
             region_id = region_dict['SEQUENCE_ID']
-            all_primer_design[region_id] = primer_design
+            for primer_id,design in primer_design.items():
+                if primer_id in invalid_primer_id_set:
+                    continue
+                if region_id not in all_primer_design:
+                    all_primer_design[region_id] = {}
+                all_primer_design[region_id][primer_id] = design
+            # all_primer_design[region_id] = primer_design
             all_raw_primer_design_result[region_id] = res
     return all_primer_design,all_raw_primer_design_result
 def build_blast_library(ref_file_path,reference_genome_path,output_dir,conda_env_name,NONCODE_url):
@@ -98,9 +192,9 @@ def check_for_blast(all_primer_design,isoform,output_dir,conda_env_name,isoform_
             if not allow_shared_region:
                 if fields[1] not in fields[0]:
                     all_problem_design_set.add(fields[0])
-            else:
-                if fields[1] not in isoform_set:
-                    all_problem_design_set.add(fields[0])
+            # else:
+            #     if fields[1] not in isoform_set:
+            #         all_problem_design_set.add(fields[0])
     with open(f'{output_dir}/temp/blast_res/{isoform}.NONCODE_blast.tsv','r') as f:
         f.readline()
         f.readline()
@@ -137,28 +231,33 @@ def get_primer_gtf_lines(good_primer_design,region_info,isoform,region_type,gnam
         assert region_info['strand'] in ['+','-']
         if region_info['strand'] == '+':
             if region_type == 'junction':
-                left_primer_start = primer_info['LEFT_start'] + region_info['exon_0_start']
-                exon_0_len = region_info['exon_0_end'] - region_info['exon_0_start'] + 1
-                # span the splice site
-                if left_primer_start + primer_info['LEFT_len'] - 1 > region_info['exon_0_end']:
-                    left_span_junction = True
-                    length_on_exon_0 = region_info['exon_0_end'] - left_primer_start + 1
-                    assert length_on_exon_0 > 0
-                    left_primer_end = region_info['exon_1_start'] + (primer_info['LEFT_len'] - length_on_exon_0) - 1
-                # not span the splice site
-                else:
-                    left_primer_end = left_primer_start + primer_info['LEFT_len'] - 1
-                exon_1_len = region_info['exon_1_end'] - region_info['exon_1_start'] + 1
-                right_primer_end = (primer_info['RIGHT_start'] + 1 - exon_0_len) + region_info['exon_1_start'] - 1
-                # span the splice site
-                if right_primer_end - primer_info['RIGHT_len'] + 1 < region_info['exon_1_start']:
-                    right_span_junction = True
-                    length_on_exon_1 = right_primer_end - region_info['exon_1_start'] + 1
-                    assert length_on_exon_1 > 0
-                    right_primer_start = region_info['exon_0_end'] - (primer_info['RIGHT_len'] - length_on_exon_1) + 1
-                # not span the splice site
-                else:
-                    right_primer_start = right_primer_end - primer_info['RIGHT_len'] + 1
+                left_primer_start = primer_info['LEFT_start_genome']
+                left_primer_end = primer_info['LEFT_end_genome']
+                right_primer_start = primer_info['RIGHT_start_genome']
+                right_primer_end = primer_info['RIGHT_end_genome']
+            # if region_type == 'junction':
+            #     left_primer_start = primer_info['LEFT_start'] + region_info['exon_0_start']
+            #     exon_0_len = region_info['exon_0_end'] - region_info['exon_0_start'] + 1
+            #     # span the splice site
+            #     if left_primer_start + primer_info['LEFT_len'] - 1 > region_info['exon_0_end']:
+            #         left_span_junction = True
+            #         length_on_exon_0 = region_info['exon_0_end'] - left_primer_start + 1
+            #         assert length_on_exon_0 > 0
+            #         left_primer_end = region_info['exon_1_start'] + (primer_info['LEFT_len'] - length_on_exon_0) - 1
+            #     # not span the splice site
+            #     else:
+            #         left_primer_end = left_primer_start + primer_info['LEFT_len'] - 1
+            #     exon_1_len = region_info['exon_1_end'] - region_info['exon_1_start'] + 1
+            #     right_primer_end = (primer_info['RIGHT_start'] + 1 - exon_0_len) + region_info['exon_1_start'] - 1
+            #     # span the splice site
+            #     if right_primer_end - primer_info['RIGHT_len'] + 1 < region_info['exon_1_start']:
+            #         right_span_junction = True
+            #         length_on_exon_1 = right_primer_end - region_info['exon_1_start'] + 1
+            #         assert length_on_exon_1 > 0
+            #         right_primer_start = region_info['exon_0_end'] - (primer_info['RIGHT_len'] - length_on_exon_1) + 1
+            #     # not span the splice site
+            #     else:
+            #         right_primer_start = right_primer_end - primer_info['RIGHT_len'] + 1
             elif region_type == 'exon':
                 left_primer_start = primer_info['LEFT_start'] + region_info['exon_start']
                 left_primer_end = left_primer_start + primer_info['LEFT_len'] - 1
@@ -167,32 +266,37 @@ def get_primer_gtf_lines(good_primer_design,region_info,isoform,region_type,gnam
         # negative strand
         else:
             if region_type == 'junction':
-                left_primer_end = region_info['exon_1_end'] - primer_info['LEFT_start'] 
-                exon_1_len = region_info['exon_1_end'] - region_info['exon_1_start'] + 1
-                # span the splice site
-                if left_primer_end - primer_info['LEFT_len'] + 1 < region_info['exon_1_start']:
-                    left_span_junction = True
-                    length_on_exon_1 = left_primer_end - region_info['exon_1_start'] + 1
-                    assert length_on_exon_1 > 0
-                    left_primer_start = region_info['exon_0_end'] - (primer_info['LEFT_len'] - length_on_exon_1) + 1
-                # not span the splice site
-                else:
-                    left_primer_start = left_primer_end - primer_info['LEFT_len'] + 1
-                exon_0_len = region_info['exon_0_end'] - region_info['exon_0_start'] + 1
+                left_primer_start = primer_info['LEFT_start_genome']
+                left_primer_end = primer_info['LEFT_end_genome']
+                right_primer_start = primer_info['RIGHT_start_genome']
+                right_primer_end = primer_info['RIGHT_end_genome']
+
+                # left_primer_end = region_info['exon_1_end'] - primer_info['LEFT_start'] 
+                # exon_1_len = region_info['exon_1_end'] - region_info['exon_1_start'] + 1
+                # # span the splice site
+                # if left_primer_end - primer_info['LEFT_len'] + 1 < region_info['exon_1_start']:
+                #     left_span_junction = True
+                #     length_on_exon_1 = left_primer_end - region_info['exon_1_start'] + 1
+                #     assert length_on_exon_1 > 0
+                #     left_primer_start = region_info['exon_0_end'] - (primer_info['LEFT_len'] - length_on_exon_1) + 1
+                # # not span the splice site
+                # else:
+                #     left_primer_start = left_primer_end - primer_info['LEFT_len'] + 1
+                # exon_0_len = region_info['exon_0_end'] - region_info['exon_0_start'] + 1
                 
-                right_primer_start = region_info['exon_0_end'] - (primer_info['RIGHT_start'] + 1 - exon_1_len) + 1
-                # span the splice site
-                if right_primer_start + primer_info['RIGHT_len'] - 1 > region_info['exon_0_end']:
-                    right_span_junction = True
-                    length_on_exon_0 =  region_info['exon_0_end'] - right_primer_start + 1
-                    if length_on_exon_0 <= 0:
-                        print(region_info)
-                        print(primer_info)
-                    assert length_on_exon_0 > 0
-                    right_primer_end = region_info['exon_1_start'] + (primer_info['RIGHT_len'] - length_on_exon_0) - 1
-                # not span the splice site
-                else:
-                    right_primer_end = right_primer_start + primer_info['RIGHT_len'] - 1
+                # right_primer_start = region_info['exon_0_end'] - (primer_info['RIGHT_start'] + 1 - exon_1_len) + 1
+                # # span the splice site
+                # if right_primer_start + primer_info['RIGHT_len'] - 1 > region_info['exon_0_end']:
+                #     right_span_junction = True
+                #     length_on_exon_0 =  region_info['exon_0_end'] - right_primer_start + 1
+                #     if length_on_exon_0 <= 0:
+                #         print(region_info)
+                #         print(primer_info)
+                #     assert length_on_exon_0 > 0
+                #     right_primer_end = region_info['exon_1_start'] + (primer_info['RIGHT_len'] - length_on_exon_0) - 1
+                # # not span the splice site
+                # else:
+                #     right_primer_end = right_primer_start + primer_info['RIGHT_len'] - 1
             elif region_type == 'exon':
                 left_primer_end = region_info['exon_end'] - primer_info['LEFT_start']
                 left_primer_start = left_primer_end - primer_info['LEFT_len'] + 1
@@ -203,22 +307,24 @@ def get_primer_gtf_lines(good_primer_design,region_info,isoform,region_type,gnam
         else:
             reverse_strand = '+'
         if region_type == 'junction':
-            if left_span_junction:
-                assert left_primer_start <= region_info['exon_0_end']
-                assert region_info['exon_1_start'] <= left_primer_end
-                primer_pos_info.append([region_info['chr'],'Primer3','exon',str(left_primer_start),str(region_info['exon_0_end']),'.',region_info['strand'],'.',f'primer_id "{primer_id}"; direction "LEFT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
-                primer_pos_info.append([region_info['chr'],'Primer3','exon',str(region_info['exon_1_start']),str(left_primer_end),'.',region_info['strand'],'.',f'primer_id "{primer_id}"; direction "LEFT"; target_type "JUNCTION" gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
-            else:
-                assert left_primer_start <= left_primer_end
-                primer_pos_info.append([region_info['chr'],'Primer3','exon',str(left_primer_start),str(left_primer_end),'.',region_info['strand'],'.',f'primer_id "{primer_id}"; direction "LEFT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
-            if right_span_junction:
-                assert right_primer_start <= region_info['exon_0_end']
-                assert region_info['exon_1_start'] <= right_primer_end
-                primer_pos_info.append([region_info['chr'],'Primer3','exon',str(right_primer_start),str(region_info['exon_0_end']),'.',reverse_strand,'.',f'primer_id "{primer_id}"; direction "RIGHT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
-                primer_pos_info.append([region_info['chr'],'Primer3','exon',str(region_info['exon_1_start']),str(right_primer_end),'.',reverse_strand,'.',f'primer_id "{primer_id}"; direction "RIGHT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
-            else:
-                assert right_primer_start <= right_primer_end
-                primer_pos_info.append([region_info['chr'],'Primer3','exon',str(right_primer_start),str(right_primer_end),'.',reverse_strand,'.',f'primer_id "{primer_id}"; direction "RIGHT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
+            primer_pos_info.append([region_info['chr'],'Primer3','exon',str(left_primer_start),str(left_primer_end),'.',region_info['strand'],'.',f'primer_id "{primer_id}"; direction "LEFT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
+            primer_pos_info.append([region_info['chr'],'Primer3','exon',str(right_primer_start),str(right_primer_end),'.',reverse_strand,'.',f'primer_id "{primer_id}"; direction "RIGHT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
+            # if left_span_junction:
+            #     assert left_primer_start <= region_info['exon_0_end']
+            #     assert region_info['exon_1_start'] <= left_primer_end
+            #     primer_pos_info.append([region_info['chr'],'Primer3','exon',str(left_primer_start),str(region_info['exon_0_end']),'.',region_info['strand'],'.',f'primer_id "{primer_id}"; direction "LEFT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
+            #     primer_pos_info.append([region_info['chr'],'Primer3','exon',str(region_info['exon_1_start']),str(left_primer_end),'.',region_info['strand'],'.',f'primer_id "{primer_id}"; direction "LEFT"; target_type "JUNCTION" gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
+            # else:
+            #     assert left_primer_start <= left_primer_end
+            #     primer_pos_info.append([region_info['chr'],'Primer3','exon',str(left_primer_start),str(left_primer_end),'.',region_info['strand'],'.',f'primer_id "{primer_id}"; direction "LEFT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
+            # if right_span_junction:
+            #     assert right_primer_start <= region_info['exon_0_end']
+            #     assert region_info['exon_1_start'] <= right_primer_end
+            #     primer_pos_info.append([region_info['chr'],'Primer3','exon',str(right_primer_start),str(region_info['exon_0_end']),'.',reverse_strand,'.',f'primer_id "{primer_id}"; direction "RIGHT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
+            #     primer_pos_info.append([region_info['chr'],'Primer3','exon',str(region_info['exon_1_start']),str(right_primer_end),'.',reverse_strand,'.',f'primer_id "{primer_id}"; direction "RIGHT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
+            # else:
+            #     assert right_primer_start <= right_primer_end
+            #     primer_pos_info.append([region_info['chr'],'Primer3','exon',str(right_primer_start),str(right_primer_end),'.',reverse_strand,'.',f'primer_id "{primer_id}"; direction "RIGHT"; target_type "JUNCTION"; gene_id "{gname}"; transcript_id "{isoform}_{primer_id};'])
         elif region_type == 'exon':
             assert right_primer_end - right_primer_start + 1 == primer_info['RIGHT_len']
             assert left_primer_end - left_primer_start + 1 == primer_info['LEFT_len']
@@ -237,7 +343,7 @@ def check_primer_3_and_blast_single_thread(worker_id,output_dir,conda_env_name):
         # use primer 3 to design primer
         all_primer_design,all_raw_primer_design_result = design_primer_for_isoform(isoform_target_sequence_dict)
         # check by blast
-        good_primer_design = check_for_blast(all_primer_design,isoform,output_dir,conda_env_name)
+        good_primer_design = check_for_blast(all_primer_design,isoform,output_dir,conda_env_name,None,True)
         if len(good_primer_design) == 0 :
             continue 
         all_good_primer_design[isoform] = good_primer_design
@@ -314,8 +420,8 @@ def design_primers(ref_file_path,reference_genome_path,output_dir,conda_env_name
 
     all_gene_primer_design_df = check_primer_3_and_blast(ref_file_path,reference_genome_path,output_dir,conda_env_name,NONCODE_fasta_url,threads)
     unique_region_df = pd.read_csv(f'{output_dir}/unique_region.tsv',sep='\t').set_index('SEQUENCE_ID')
-    unique_region_df['exon_1_start'] = unique_region_df['exon_1_start'].astype('Int64')
-    unique_region_df['exon_1_end'] = unique_region_df['exon_1_end'].astype('Int64')
+    # unique_region_df['exon_1_start'] = unique_region_df['exon_1_start'].astype('Int64')
+    # unique_region_df['exon_1_end'] = unique_region_df['exon_1_end'].astype('Int64')
     if all_gene_primer_design_df is not None:
         unique_region_with_primers_df = unique_region_df.loc[set(all_gene_primer_design_df['SEQUENCE_ID'])]
         unique_region_with_primers_df.to_csv(f'{output_dir}/unique_region_with_primers.tsv',sep='\t',na_rep='nan')

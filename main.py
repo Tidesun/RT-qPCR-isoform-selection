@@ -1,6 +1,6 @@
 import argparse
 from pathlib import Path
-
+import config
 from prepare_target_sequence import prepare_target_sequence_dict
 from design_primers import design_primers
 def parse_arguments():
@@ -16,6 +16,8 @@ def parse_arguments():
     optional.add_argument('--conda_env_name', type=str, help="Conda env name for the tool.[default:qPCR_isoform_selection]",required=False,default='qPCR_isoform_selection')
     optional.add_argument('-t','--threads', type=int, help="Number of threads.[default:1]",required=False,default=1)
     optional.add_argument('--min_region_length', type=int, help="Min region length.[default:95]",required=False,default=95)
+    optional.add_argument('--min_intron_length', type=int, help="Min intron length.[default:1000]",required=False,default=1000)
+    optional.add_argument('--num_primers_returns', type=int, help="Maxium number of primers designed for each unique region of transcript.[default:1000]",required=False,default=1000)
     optional.add_argument('--NONCODE_fasta_url', type=str, help="NONCDOE reference fasta.[default:http://www.noncode.org/datadownload/NONCODEv6_human.fa.gz]",required=False,default='http://www.noncode.org/datadownload/NONCODEv6_human.fa.gz')
     optional.add_argument('--only_identify_unique_region', type=str, help="Whether only identify unique region of isoforms and do not find primers.[default:False]",required=False,default='False')
     optional.add_argument('--isoform_list_fpath', type=str, help="Path of isoform_list_fpath.[default:None]",required=False,default=None)
@@ -33,6 +35,8 @@ def main():
     conda_env_name = args.conda_env_name
     NONCODE_fasta_url = args.NONCODE_fasta_url
     isoform_list_fpath = args.isoform_list_fpath
+    config.min_intron_length = args.min_intron_length
+    config.num_primers_returns = args.num_primers_returns
     Path(f'{output_dir}/temp').mkdir(exist_ok=True,parents=True)
     Path(f'{output_dir}/temp/blast_res/').mkdir(exist_ok=True,parents=True)
     Path(f'{output_dir}/temp/target_sequences/').mkdir(exist_ok=True,parents=True)

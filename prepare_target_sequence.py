@@ -7,7 +7,7 @@ import pysam
 from intervaltree import IntervalTree
 import numpy as np
 import pandas as pd
-
+import config
 from parse_annotation import parse_annotation
 def get_sequence(start,end,chr,strand,reference_fasta):
     assert strand in ['+','-']
@@ -43,11 +43,14 @@ def get_isoform_exons_dict(raw_isoform_exons_dict):
             for isoform in raw_isoform_exons_dict[rname][gname]:
                 isoform_exons_dict[isoform] = raw_isoform_exons_dict[rname][gname][isoform]
     return isoform_exons_dict
-def get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length,gene_regions_dict,gene_points_dict,gene_isoforms_dict,gene_interval_tree_dict,gene_strand_dict,shared_region_isoform=None,unique_region=True,shared_all_region=False):
+def get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length,gene_regions_dict,gene_points_dict,gene_isoforms_dict,gene_interval_tree_dict,gene_strand_dict,selected_isoform_set,shared_region_isoform=None,unique_region=True,shared_all_region=False):
+    all_isoforms = gene_isoforms_dict[rname][gname]
+    if selected_isoform_set is not None:
+        if len(set(all_isoforms).intersection(selected_isoform_set)) == 0:
+            return {}
     point_dict = {}
     for pos,point in gene_points_dict[rname][gname].items():
         point_dict[f'P{point}'] = pos
-    all_isoforms = gene_isoforms_dict[rname][gname]
     all_isoform_target_sequence_dict = {}
     region_id = 0
 
@@ -66,27 +69,64 @@ def get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length
                 continue
             isoform = shared_region_isoform
         if ':' in region and '-' in region:
-            if region.count(':') > 2:
-                continue
+            # if region.count(':') > 2:
+            #     continue
             exons = region.split('-')
-            [start_pt_0,end_pt_0] = exons[0].split(':')
-            [start_pt_1,end_pt_1] = exons[1].split(':')
-            start_pos_0,end_pos_0 = point_dict[start_pt_0],point_dict[end_pt_0]
-            start_pos_1,end_pos_1 = point_dict[start_pt_1],point_dict[end_pt_1]
-            if (end_pos_1 - start_pos_1 + 1) + (end_pos_0 - start_pos_0 + 1)  >= lower_region_length:
+            start_pts = [exon.split(':')[0] for exon in exons]
+            end_pts = [exon.split(':')[1] for exon in exons]
+            start_poses = [point_dict[start_pt] for start_pt in start_pts]
+            end_poses = [point_dict[end_pt] for end_pt in end_pts]
+            exon_len = [end_pos-start_pos+1 for start_pos,end_pos in zip(start_poses,end_poses)]
+            is_valid_region = True
+            for l in exon_len:
+                if l < 5:
+                    is_valid_region = False
+                    break
+            if not is_valid_region:
+                continue
+            region_length = sum(exon_len)
+            # [start_pt_0,end_pt_0] = exons[0].split(':')
+            # [start_pt_1,end_pt_1] = exons[1].split(':')
+            # start_pos_0,end_pos_0 = point_dict[start_pt_0],point_dict[end_pt_0]
+            # start_pos_1,end_pos_1 = point_dict[start_pt_1],point_dict[end_pt_1]
+            if region_length  >= lower_region_length:
                 seq_dict = {}
                 region_id += 1
                 seq_dict['SEQUENCE_ID'] = f'{gname}_{isoform}_{region_id}'
-                target_sequence_0 = get_sequence(start_pos_0,end_pos_0,chr_name,gene_strand_dict[gname],reference_fasta)
-                target_sequence_1 = get_sequence(start_pos_1,end_pos_1,chr_name,gene_strand_dict[gname],reference_fasta)
-                if gene_strand_dict[gname] == '+':
-                    seq_dict['SEQUENCE_TEMPLATE'] = target_sequence_0 + target_sequence_1
-                    seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_0)
-                    target_sequence = target_sequence_0 +'^'+target_sequence_1
-                else:
-                    seq_dict['SEQUENCE_TEMPLATE'] =  target_sequence_1 + target_sequence_0
-                    seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_1)
-                    target_sequence = target_sequence_1 +'^'+target_sequence_0
+                seq_dict['SEQUENCE_TEMPLATE'] = ''
+                target_sequence = ''
+                intron_length = end_poses[-1] - start_poses[0] + 1 - region_length
+                if intron_length < config.min_intron_length:
+                    continue
+                for start_pos,end_pos in zip(start_poses,end_poses):
+                    seq = get_sequence(start_pos,end_pos,chr_name,gene_strand_dict[gname],reference_fasta)
+                    if gene_strand_dict[gname] == '+':
+                        seq_dict['SEQUENCE_TEMPLATE'] += seq
+                        # seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_0)
+                        if target_sequence != '':
+                            target_sequence += '^'+seq
+                        else:
+                            target_sequence = seq
+                    else:
+                        seq_dict['SEQUENCE_TEMPLATE'] = seq + seq_dict['SEQUENCE_TEMPLATE']
+                        # seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_0)
+                        if target_sequence != '':
+                            target_sequence = seq + '^' + target_sequence
+                        else:
+                            target_sequence = seq
+                        # seq_dict['SEQUENCE_TEMPLATE'] =  target_sequence_1 + target_sequence_0
+                        # seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_1)
+                        # target_sequence = target_sequence_1 +'^'+target_sequence_0
+                # target_sequence_0 = get_sequence(start_pos_0,end_pos_0,chr_name,gene_strand_dict[gname],reference_fasta)
+                # target_sequence_1 = get_sequence(start_pos_1,end_pos_1,chr_name,gene_strand_dict[gname],reference_fasta)
+                # if gene_strand_dict[gname] == '+':
+                #     seq_dict['SEQUENCE_TEMPLATE'] = target_sequence_0 + target_sequence_1
+                #     # seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_0)
+                #     target_sequence = target_sequence_0 +'^'+target_sequence_1
+                # else:
+                #     seq_dict['SEQUENCE_TEMPLATE'] =  target_sequence_1 + target_sequence_0
+                #     # seq_dict['SEQUENCE_OVERLAP_JUNCTION_LIST'] = len(target_sequence_1)
+                #     target_sequence = target_sequence_1 +'^'+target_sequence_0
                 if isoform not in all_isoform_target_sequence_dict:
                     all_isoform_target_sequence_dict[isoform] = {'junction':[],'junction_info':[],'exon':[],'exon_info':[]}
                 all_isoform_target_sequence_dict[isoform]['junction'].append(seq_dict)
@@ -94,7 +134,7 @@ def get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length
                 strand = '+' if gene_strand_dict[gname] == '+' else '-'
                 assert strand in ['+','-']
                 all_isoform_target_sequence_dict[isoform]['junction_info'].append(\
-                {'region_id':region_id,'seq':target_sequence,'chr':chr_name,'strand':strand,'exon_0_start':start_pos_0,'exon_0_end':end_pos_0,'exon_1_start':start_pos_1,'exon_1_end':end_pos_1})
+                {'region_id':region_id,'seq':target_sequence,'chr':chr_name,'strand':strand,'exon_start':start_poses,'exon_end':end_poses,'intron_length':intron_length,'region_length':region_length})
         elif ':' in region and not '-' in region:
             [start_pt,end_pt] = region.split(':')
             start_pos,end_pos = point_dict[start_pt],point_dict[end_pt]
@@ -143,7 +183,7 @@ def get_distance_to_five_and_three_ends(all_isoform_target_sequence_dict,isoform
     for isoform,isoform_target_sequence_dict in all_isoform_target_sequence_dict.items():
         all_regions_diff_dict[isoform] = {}
         for region_dict in isoform_target_sequence_dict['junction_info']:
-            region_diff = get_distance_to_two_ends(region_dict['exon_0_end'],region_dict['exon_1_start'],isoform,isoform_exons_dict)
+            region_diff = get_distance_to_two_ends(region_dict['exon_end'][0],region_dict['exon_start'][-1],isoform,isoform_exons_dict)
 #             all_regions_diff.append([str(region_dict['region_id']),region_diff,'junction'])
             all_regions_diff_dict[isoform][str(region_dict['region_id'])] = region_diff
         for region_dict in isoform_target_sequence_dict['exon_info']:
@@ -156,19 +196,24 @@ def output_target_sequence_info(all_isoform_target_sequence_dict,isoform_exons_d
     for isoform in all_isoform_target_sequence_dict:
         for design_dict,info_dict in zip(all_isoform_target_sequence_dict[isoform]['exon'],all_isoform_target_sequence_dict[isoform]['exon_info']):
             region_id = design_dict['SEQUENCE_ID'].split('_')[-1]
-            row = [design_dict['SEQUENCE_ID'],design_dict['SEQUENCE_TEMPLATE'],'exon',info_dict['chr'],info_dict['strand'],all_regions_diff_dict[isoform][region_id],info_dict['exon_start'],info_dict['exon_end']]
+            row = [design_dict['SEQUENCE_ID'],design_dict['SEQUENCE_TEMPLATE'],'exon',info_dict['chr'],info_dict['strand'],all_regions_diff_dict[isoform][region_id],info_dict['exon_start'],info_dict['exon_end'],info_dict['exon_end'] - info_dict['exon_start'] + 1]
             rows.append(row)
         for design_dict,info_dict in zip(all_isoform_target_sequence_dict[isoform]['junction'],all_isoform_target_sequence_dict[isoform]['junction_info']):
             region_id = design_dict['SEQUENCE_ID'].split('_')[-1]
-            row = [design_dict['SEQUENCE_ID'],design_dict['SEQUENCE_TEMPLATE'],'junction',info_dict['chr'],info_dict['strand'],all_regions_diff_dict[isoform][region_id],info_dict['exon_0_start'],info_dict['exon_0_end'],info_dict['exon_1_start'],info_dict['exon_1_end']]
+            row = [design_dict['SEQUENCE_ID'],design_dict['SEQUENCE_TEMPLATE'],'junction',info_dict['chr'],info_dict['strand'],all_regions_diff_dict[isoform][region_id],info_dict['exon_start'],info_dict['exon_end'],info_dict['intron_length'],info_dict['region_length']]
             rows.append(row)
     df = pd.DataFrame(rows)
-    df.columns=['SEQUENCE_ID','SEQUENCE_TEMPLATE','region_type','Chr','Strand','5_end_and_3_end_distance_difference','exon_0_start','exon_0_end','exon_1_start','exon_1_end']
-    df['exon_1_start'] = df['exon_1_start'].astype('Int64')
-    df['exon_1_end'] = df['exon_1_end'].astype('Int64')
+    df.columns=['SEQUENCE_ID','SEQUENCE_TEMPLATE','region_type','Chr','Strand','5_end_and_3_end_distance_difference','exon_start','exon_end','intron_length','exon_length']
     df = df.set_index('SEQUENCE_ID')
     df.to_csv(f'{output_dir}/unique_region.tsv',sep='\t',na_rep='nan')
     return df
+def get_isoform_set(isoform_list_fpath):
+    isoform_set = set()
+    with open(isoform_list_fpath,'r') as f:
+        for line in f:
+            isoform_id = line.strip()
+            isoform_set.add(isoform_id)
+    return isoform_set
 def read_isoform_list(isoform_list_fpath,all_isoform_target_sequence_dict):
     isoform_set = set()
     with open(isoform_list_fpath,'r') as f:
@@ -181,12 +226,15 @@ def read_isoform_list(isoform_list_fpath,all_isoform_target_sequence_dict):
 def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_region_length,output_dir,isoform_list_fpath,threads):
     reference_fasta = pysam.FastaFile(reference_genome_path)
     [gene_exons_dict, gene_points_dict, gene_isoforms_dict, genes_regions_len_dict,
-        _, gene_regions_dict, gene_isoforms_length_dict,raw_isoform_exons_dict,raw_gene_exons_dict,same_structure_isoform_dict] = parse_annotation(ref_file_path, int((threads+1)//2))
+        _, gene_regions_dict, gene_isoforms_length_dict,raw_isoform_exons_dict,raw_gene_exons_dict,same_structure_isoform_dict] = parse_annotation(ref_file_path, int(threads))
     gene_strand_dict = get_gene_strand_dict(ref_file_path)
     gene_interval_tree_dict = get_gene_interval_tree_dict(gene_points_dict,gene_exons_dict)
     # get all isoform target sequence
     all_isoform_target_sequence_dict = {}
     all_isoform_gname_dict = {}
+    selected_isoform_set = None
+    if isoform_list_fpath is not None:
+        selected_isoform_set = get_isoform_set(isoform_list_fpath)
     for rname in gene_regions_dict:
         chr_name = rname
         if rname not in reference_fasta.references:
@@ -196,7 +244,7 @@ def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_regi
                 continue
         for gname in gene_regions_dict[rname]:
             if gname in gene_strand_dict:
-                isoform_target_sequence_dict = get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length,gene_regions_dict,gene_points_dict,gene_isoforms_dict,gene_interval_tree_dict,gene_strand_dict)
+                isoform_target_sequence_dict = get_target_sequence(rname,gname,chr_name,reference_fasta,lower_region_length,gene_regions_dict,gene_points_dict,gene_isoforms_dict,gene_interval_tree_dict,gene_strand_dict,selected_isoform_set)
                 all_isoform_target_sequence_dict.update(isoform_target_sequence_dict)
                 for isoform in all_isoform_target_sequence_dict:
                     all_isoform_gname_dict[isoform] = gname
