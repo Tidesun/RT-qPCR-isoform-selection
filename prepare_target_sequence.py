@@ -253,6 +253,8 @@ def prepare_target_sequence_dict(ref_file_path,reference_genome_path, lower_regi
     print(str(len(all_isoform_target_sequence_dict))+' isoforms have unique region!',flush=True)
     if isoform_list_fpath is not None:
         selected_isoform_set = read_isoform_list(isoform_list_fpath,all_isoform_target_sequence_dict)
+    else:
+        selected_isoform_set = list(all_isoform_target_sequence_dict.keys())
     # debug
     # backup = all_isoform_target_sequence_dict.copy()
     # all_isoform_target_sequence_dict = {}

@@ -46,7 +46,10 @@ def design_primer_for_isoform(isoform_target_sequence_dict,allow_exon=True):
                     if primer_id not in primer_design:
                         primer_design[primer_id] = {}
                     primer_design[primer_id][direction] = seq
-                    primer_design[primer_id][direction+'_start'] = res[f'PRIMER_{direction}_{primer_id}'][0]
+                    if seq in info['seq'].replace('^',''):
+                        primer_design[primer_id][direction+'_start'] = info['seq'].replace('^','').index(seq)
+                    else:
+                        primer_design[primer_id][direction+'_start'] = info['seq'].replace('^','').index(str(Seq(seq).reverse_complement()))
                     primer_design[primer_id][direction+'_len'] = res[f'PRIMER_{direction}_{primer_id}'][1]
                     primer_design[primer_id][direction+'_PENALTY'] = res[f'PRIMER_{direction}_{primer_id}_PENALTY']
                     primer_design[primer_id][direction+'_TM'] = res[f'PRIMER_{direction}_{primer_id}_TM']
@@ -100,15 +103,15 @@ def design_primer_for_isoform(isoform_target_sequence_dict,allow_exon=True):
                         continue 
 
                     right_remaing_flanking = design_RIGHT_start_genome
-                    for exon_index in range(len(exon_lens)-1,-1,-1):
+                    for exon_index in range(0,len(exon_lens)):
                         exon_len = exon_lens[exon_index]
                         if right_remaing_flanking < exon_len:
-                            right_end = exon_ends[exon_index] - right_remaing_flanking
-                            if right_end - design_RIGHT_len + 1 <= exon_starts[exon_index]:
+                            right_start = exon_starts[exon_index] + right_remaing_flanking
+                            if right_start + design_RIGHT_len - 1 >= exon_ends[exon_index]:
                                 # del primer_design[primer_id]
                                 is_invalid_primer_design = True
                             else:
-                                right_start = right_end - design_RIGHT_len + 1
+                                right_end = right_start + design_RIGHT_len - 1
                             break
                         else:
                             right_remaing_flanking -= exon_len
