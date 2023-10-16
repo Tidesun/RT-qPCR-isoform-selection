@@ -349,7 +349,7 @@ def check_primer_3_and_blast_single_thread(worker_id,output_dir,conda_env_name):
         # use primer 3 to design primer
         all_primer_design,all_raw_primer_design_result = design_primer_for_isoform(isoform_target_sequence_dict)
         # check by blast
-        good_primer_design = check_for_blast(all_primer_design,isoform,output_dir,conda_env_name,None,True)
+        good_primer_design = check_for_blast(all_primer_design,isoform,output_dir,conda_env_name,None,False)
         if len(good_primer_design) == 0 :
             continue 
         all_good_primer_design[isoform] = good_primer_design
