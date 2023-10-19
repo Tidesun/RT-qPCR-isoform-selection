@@ -1,6 +1,9 @@
 # Introduction
 
-This is a script to select RT-qPCR primers given a gene isoform annotation. The packages include two steps: 1)selecting unique regions as the target sequences of RT-qPCR experiment for each isoform that is not shared with other isoforms 2)trying to design primer for each target sequence by primer3 (via Primer3-py the python version of primer3)
+This is a script to select RT-qPCR primers given a gene isoform annotation. <br>
+The packages include two steps: <br>
+1. Selecting unique regions as the target sequences of RT-qPCR experiment for each isoform that is not shared with other isoforms.
+2. Trying to design primer for each target sequence by primer3 (via Primer3-py the python version of primer3)
 
 # Installation
 ```
